@@ -1,0 +1,54 @@
+plugins {
+  id 'com.bmuschko.docker-remote-api' version '6.7.0'
+  id "com.dorongold.task-tree" version "2.1.0"
+}
+
+import com.bmuschko.gradle.docker.tasks.container.*
+import com.bmuschko.gradle.docker.tasks.image.*
+
+def repo = 'test/my-app'
+def version = '1.0.0'
+def contName = 'test-cont'
+
+task build(type: DockerBuildImage) {
+  inputDir = projectDir
+  images.add("$repo:$version")
+}
+
+task create(type: DockerCreateContainer) {
+  dependsOn build
+  targetImageId "$repo:$version"
+  containerName = contName
+}
+
+task start(type: DockerStartContainer) {
+  dependsOn create
+  targetContainerId contName
+}
+
+task stop(type: DockerStopContainer) {
+  dependsOn start
+  targetContainerId contName
+}
+
+task commit(type: DockerCommitImage) {
+  dependsOn start
+  targetContainerId contName
+  image = "$repo:$version-SNAPSHOT"
+}
+
+task remove(type: DockerRemoveContainer) {
+  targetContainerId contName
+  onError { exception ->
+    if (!exception.message.contains('No such container')) {
+      throw exception
+    }
+  }
+}
+
+task demo {
+  dependsOn commit
+  finalizedBy remove
+}
+
+defaultTasks 'demo'
